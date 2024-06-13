@@ -1,6 +1,6 @@
 ---
 title: "Investigating the factors that are related to medical costs in the United States"
-author: "Jianhong Dong, Xueyao Wang"
+author: "Xueyao Wang，Jianhong Dong"
 date: "`10.28.2022`"
 output:
   html_document: default
@@ -36,14 +36,14 @@ ins <- read.csv("/Users/sherry/Desktop/Stat 302/insurance.csv")
 ### Background  
 
 <br>
-Health cost in America has been increasing every year and this year in 2022, the US health insurance prices went up 28.2% since September due to the pandemic. 
+Health costs in America has been increasing every year and this year in 2022, the US health insurance prices went up 28.2% since September due to the pandemic. 
 
 ### Dataset  
 <br>
 This is the dataset we chose: \
 
 
-### Reason to chose  
+### Reason to choose  
 <br>
 We chose this dataset because we are interested in public health and  people’s families with their health situations. With the health cost increasing every year and increasing by a lot, we would like to know what health variables like the ones in this dataset might be influential to the medical cost, and also we want to know if there are any potential relationships between the health variables.  
 
