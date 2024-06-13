@@ -1,0 +1,653 @@
+---
+title: "Investigating the factors that are related to medical costs in the United States"
+author: "Jianhong Dong, Xueyao Wang"
+date: "`10.28.2022`"
+output:
+  html_document: default
+  pdf_document:
+         latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MASS)
+library(lmtest)
+library(car)
+library(olsrr)
+library(plyr)
+library(rcompanion)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(ggmosaic)
+options(tinytex.verbose = TRUE)
+```
+
+Group member contributions: \
+Xueyao Wang (library research & coding) 60% \
+Jianhong Dong (background & typesetting) 40% \
+
+```{r summary}
+ins <- read.csv("/Users/sherry/Desktop/Stat 302/insurance.csv")
+```
+
+## Section 1: Introduction
+
+### Background  
+
+<br>
+Health cost in America has been increasing every year and this year in 2022, the US health insurance prices went up 28.2% since September due to the pandemic. 
+
+### Dataset  
+<br>
+This is the dataset we chose: \
+
+
+### Reason to chose  
+<br>
+We chose this dataset because we are interested in public health and  people’s families with their health situations. With the health cost increasing every year and increasing by a lot, we would like to know what health variables like the ones in this dataset might be influential to the medical cost, and also we want to know if there are any potential relationships between the health variables.  
+
+### Population and sample
+<br>
+Population: all health insurance contractors in the US\
+Sample: 1338 insurance contractors selected\
+
+### Type of study
+<br>
+This is a cross-sectional study.
+
+### Software and version
+<br>
+we are using R studio, version:2022.02.3 
+
+### Level of significance
+<br>
+we set the level of significance to 0.05
+
+###  Missing values
+<br>
+if there are missing values, we will intend to filter out the missing values
+
+### Significance of study
+it is very important for insurance companies to accurately predict the insurance cost based on the data. They can only make profit if they spend less than they collect, so this topic is important because this can help them understand what variables can be used to significantly predict the insurance cost (Uzila, 2022). /
+
+
+### Research Questions
+<br>
+
+#### Q1 Is there an association between the gender(sex) and the smoking status (smoker) of an insurance contractor, controlling the regions? \
+
+Methods and plans: we will use CMH Test first to discover if region have an influence on the relationship between gender and smoking status. If no, we will exclude region as a variable since it has no influence in the result. If yes, we will perform chi square test within each region to test the relationship between gender and smoking status. \
+
+Variables: smoker is our dependent variable, and sex is our independent variable. We will check if region is a confounding variable.
+
+Why interested: We want to find out if there is a difference probability of smoking status for both genders. Also, we want to know if region plays a role in this difference.
+
+
+#### Q2 Is there an association between the region and the medical cost of insurance contractor (charges)? \ 
+
+Methods and plans: we will test the ANOVA assumptions first. If the assumptions are fulfilled, we can perform ANOVA to test if there is a difference in mean medical costs for different region. If not, the non-parametric kruskal test can be used to test the difference in means. We will also remove any outlier and compare the result before and after removal of outliers. If there is a significant difference in means between regions, we can perform a post hoc test to see the difference of means in different regions.\
+
+Variables: we will need region as our independent variable and charges as our dependent variable \
+
+Why interested: Since different regions have different things like different cost of living and tax rates, we want to find out if different regions tend to have different medical cost as well.  
+
+
+#### Q3 Which factors significantly predict the total medical cost of insurance contractors(charges)? \ 
+
+Methods and plans: we will use multiple linear regression for all variables first. Then we will reduce unecessary variables based backward selections, previous results and literatures to find out the best model. \
+
+Variables: charges is our dependent variable and we will need every other variables(sex, smoker, region, children, age, bmi) for our full model, a second model without variable SEX and a third model without variables SEX and region\
+
+Why interested: We are interested what variables are siginificant to the insurance medical cost so people would know what variables can be used to siginificant predict the charges \
+
+## Section 2 Exploratory and descriptive data analysis
+
+### Variable overview
+
+#### 3 categorical variables: \  
+
+  1.sex: insurance contractor gender (female, male). \
+  2.smoker : smoking (yes or no). \
+  3.region: the beneficiary's residential area in the US(northeast, southeast, southwest, northwest). \
+  
+#### 4 numerical variables:  \ 
+
+  1.age: age of primary beneficiary \
+  2.bmi: body mass index, providing an understanding of body, weight in kilograms divided by height in meters squared. \
+  3.children: number of children covered by health insurance / Number of dependents. \  
+  4.charges: individual medical costs billed by health insurance. \
+
+```{r Variables}
+data.frame(
+  Variables = c("age", "sex", "bmi", "children", "smoker", "region", "charges"),
+  DataType = c("Numerical", "Categorical", "Numerical", "Numerical", 
+               "Categorical", "Categorical", "Numerical"),
+  MeasurementLevel = c("Ratio", "Nominal", "Ratio", "Ratio", "Nominal",
+                       "Nominal", "Ratio"),
+  Units = c("Years", "NA", "kg/m^2", "NA", "NA", "NA", "Dollars"), 
+  stringsAsFactors = FALSE
+)
+summary(ins)
+
+```
+
+### Variables for Q1: smoker, sex and region 
+
+```{r Q1Var}
+ggplot(ins, 
+       aes(x = smoker)) + 
+  geom_bar() + 
+  labs(title = "Smoking status",
+       x = "Smoker",
+       y = "Count") + 
+  theme_bw(base_size = 16) + 
+  theme(plot.title = 
+          element_text(hjust = 0.5))
+ggplot(ins, 
+       aes(x = sex)) + 
+  geom_bar() + 
+  labs(title = "Sexs",
+       x = "Sex",
+       y = "Count") + 
+  theme_bw(base_size = 16) + 
+  theme(plot.title = 
+          element_text(hjust = 0.5))
+ggplot(ins, 
+       aes(x = region)) + 
+  geom_bar() + 
+  labs(title = "Regions in USs",
+       x = "Region",
+       y = "Count") + 
+  theme_bw(base_size = 16) + 
+  theme(plot.title = 
+          element_text(hjust = 0.5))
+
+```
+
+From the graph above, we can see that the number of non-smoking people is much higher than the smokers.  The data is collected from both genders equally. Finally, the dataset contains more people from southeast region in the US.
+
+We then made the contingency table for sex and smoking status to demonstrate the frequency for each sex to smoke.
+
+```{r Q1Table}
+SmokeSexRegion <- table(ins$smoker, ins$sex, ins$region)
+dimnames(SmokeSexRegion) <- list(Smoke = c("No","Yes"), 
+                                  Sex = c("Female","Male"), 
+                                  Region = c("Northeast", "Northwest", 
+                                             "Southeast", "Southwest"))
+SmokeSexRegion
+```
+
+```{r Q1Mosaic}
+ggplot(data = ins)+
+  geom_mosaic(aes(x = product(smoker, region, sex), fill = smoker))+
+  labs(x = "Smoker:Sex", y = "Region", 
+       title = "Number of smokers of both sex controlling for regions")+
+   theme(plot.title = element_text(hjust = 0.5))
+```
+
+The x-axis represents the smoking status with sex, and the y-axis represents different regions. The pink bar shows the portion of people who are not smokers and the blue bar represents the portion of people who are smokers.
+
+From the mosaic plot above, we can first see that the number of people who are not smoker is the majority for every region and both genders. Then, the number of female smoker is obviously fewer than male in every region. Comparing the smoking status among regions, we can tell that the number of people who are not smokers is approximately the same within each gender, whle the number of people who are smokers is the highest in southeast region for both genders.
+
+### Variables for Q2: charges and region
+
+The region is already shown in former bar graph, so we visualized the charges.
+
+```{r Q2Var}
+ggplot(ins, 
+       aes(y = charges)) + 
+  labs(title = "Medical cost of insurance contractor (charges)",
+       y = "",) +
+  geom_boxplot()
+```
+
+From this boxplot we can see that the charges are not normal as our dependent variable. Also, there are several extreme outliers.
+
+We then visualized the charges within each region.
+
+```{r Q2Bar}
+ggplot(ins, 
+       aes(x = region, y = charges)) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "Medical cost (charges) in different region of US",
+       x = "Region",
+       y = "Charges (dollars)") + 
+  theme_bw(base_size = 16) + 
+  theme(plot.title = 
+          element_text(hjust = 0.5))
+```
+
+From the bar chart above, we can see that the medical costs is southeast region is the highest among all the regions. Then, the medical costs in northeast region is a little higher than northwest and southwest regions.\
+
+```{r Q2Box}
+ggplot(ins, 
+       aes(x = region, y = charges)) + 
+  labs(title = "Medical costs in different region of US",
+       x = "Region",
+       y = "Medical costs (dollars)") +
+  geom_boxplot()
+```
+
+The boxplot shows that the quartiles for every regions are approximately the same, except for the higher Q3 for southeast region. In addition to that, we can see that there are some significant outliers in the regions.
+
+### Variables for Q3: age, bmi, children, smoker and charges
+
+Since the Research Question 3 is to determine the factors that affect charges, we visualized the variables in our final model. Since smoker and charges have already been visualized in the former section, we omitted them.
+
+```{r Q3Var}
+ggplot(ins, 
+       aes(y = age)) + 
+  labs(title = "Age (years)",
+       y = "",) +
+  geom_boxplot()
+ggplot(ins, 
+       aes(y = bmi)) + 
+  labs(title = "BMI",
+       y = "",) +
+  geom_boxplot()
+ggplot(ins, 
+       aes(y = children)) + 
+  labs(title = "Number of children",
+       y = "",) +
+  geom_boxplot()
+```
+
+From the graphs above, we can see that for BMI, there are some extreme outliers. No significant outliers are found for age and children.
+
+## Section 3 Statistical Results
+
+### Research Question 1: Is there an association between the gender(sex) o and the smoking status (smoker) of an insurance contractor, controlling for the regions?
+
+Independent variables: sex, region \
+Dependent variable: smoker \
+
+#### CMH test \
+
+We first utilized CMH test to compare the odds ratio of sex and smoker for each regions. This is to determine whether the association of sex and smoker is different in each region. If so, region is a factor that influences the association of sex and smoker.
+
+H0: the true common odds ratio of smoking status (smoker) between both genders (sex) among all regions in the US is equal to 1. \
+H_a: the true common odds ratio of smoking status (smoker) between both genders (sex) among all regions in the US is not equal to 1. \
+
+```{r Q1CMH}
+mantelhaen.test(ins$sex, ins$smoker,ins$region)
+```
+
+As the p-value is 0.007447 < 0.05, there is sufficient evidence for us to reject the null hypothesis and conclude that the true common odds ratio of smoking status (smoker) between both genders (sex) among all regions in the US is not equal to 1, meaning that there is a difference in odds for the gender (sex) o and the smoking status (smoker) in different regions.
+
+#### Chi-square test \
+
+Now we need to determine the significance of sex and smoker association within each region using chi-square.
+
+We checked the assumptions of chi-square: \
+  1. Both variables are categorical. \
+  2. All observations are made independently. \
+  3. Cells in the contingency table are mutually exclusive. \
+  4. Expected value of cells should be 5 or greater in at least 80% of cells. \
+
+$H_0:$ there is no significanrt correlation between sex and smoker in the corresponding region. \
+$H_A:$ there is significanrt correlation between sex and smoker in the corresponding region. \
+
+```{r Q1Chi}
+Northeast <- filter(ins, ins$region == "northeast")
+chisq.test(Northeast$sex, Northeast$smoker)
+Northwest <- filter(ins, ins$region == "northwest")
+chisq.test(Northwest$sex, Northwest$smoker)
+Southeast <- filter(ins, ins$region == "southeast")
+chisq.test(Southeast$sex, Southeast$smoker)
+Southwest <- filter(ins, ins$region == "southwest")
+chisq.test(Southwest$sex, Southwest$smoker)
+```
+
+From the result above, we can see that at 5% significance level, only data in southwest region provides sufficient evidence for us to reject the null hypothesis and conclude that there is a significant association between sex and smoker. The result in southeast region shows a significant association between sex and smoker at 10% significance level, but not at 5% significant level.
+
+### Research Question 2: Is there an association between the region and the medical cost of insurance contractor (charges)?
+
+Independent variable: region \
+Dependent variable: charges \
+
+First, we need to compare the mean medical costs in each region. We need to test the ANOVA assumption to see if it is appropriate to use.
+
+#### Anova \
+
+Assumptions: \
+1. The one way ANOVA has one single dependent variable (charges) and a single independent variable (region) \
+2. Dependent variable(charges) is continuous, independent variable(region) is categorical and they are independent of each other \  
+3. Each insurance contractor provided only one score for charges \
+4. The normality assumption is not fulfilled \
+
+```{r Q2ChargesNorm}
+shapiro.test(ins$charges)
+```
+
+The dependent variable (charges) is not normally distributed. We tried several transformations to see if it can be transformed into normal data.
+
+```{r Q2Transform}
+shapiro.test(sqrt(ins$charges))
+shapiro.test(ins$charges^2)
+shapiro.test(log(ins$charges))
+bc <- boxcox(ins$charges ~ ins$region)
+lambda <- bc$x[which.max((bc$y))]
+lambda
+shapiro.test((ins$charges^lambda-1)/lambda)
+```
+
+After transformation, the data is still not normally distributed. So the normality assumption is not fulfilled.
+
+5. The equal variance assumption is not fulfilled
+
+```{r}
+leveneTest(ins$charges ~ as.factor(ins$region))
+```
+Since p = 0.00086 < $\alpha$ = 0.05, the two groups do not have equal variance.
+
+6. From the boxplot visualized in Section 2, there are some significant outliers for each region. \
+
+Since the dependent variable is not normally distributed, the groups do not have equal variance and there are outliers. Thus, the ANOVA assumptions are not fulfilled and we will use the non-parametric kruskal test instead.\
+
+#### Kruskal-Wallis test \
+
+$H_0:$ there is no statistically significant difference in mean medical cost of insurance contractor (charges) among different regions (region). \
+$H_A:$ there is statistically significant difference in mean medical cost of insurance contractor (charges) among different regions (region). \
+
+```{r}
+kruskal.test(ins$charges ~ ins$region)
+```
+
+Since p-value = 0.1923 > $\alpha$ = 0.05, we failed to reject the null hypothesis and conclude that there is no statistically significant difference in mean medical cost of insurance contractor (charges) among different regions. So there is no association between the region and the medical cost of insurance contractor (charges). 
+
+#### Outliers removal \
+
+As there is a lot of outliers, we tried to get rid of the outliers and do the kruskal test again to see the change in result.
+
+```{r Q2MeanSD}
+mean(ins$charges)
+sd(ins$charges)
+```
+
+Since we know that the mean of charges is 13270.42, and the standard deviation of charges is 12110.01, so we can calculate z-scores to get rid of any extreme outlier that is 3 standard deviation away from mean using this formula: 
+
+$$Z = \frac{x - \mu} {\sigma}$$
+
+```{r Q2Outlier}
+chargeFilter <- ins %>% 
+  select(region, charges) %>%
+  filter((charges - 13270.42)/12110.01 > -3 & (charges - 13270.42)/12110.01 < 3)
+
+ggplot(chargeFilter, 
+       aes(x = region, y = charges)) + 
+  labs(title = "Medical costs in different region of US without outliers",
+       x = "Region",
+       y = "Medical costs (dollars)") +
+  geom_boxplot()
+```
+
+We have already get rid of the extreme outliers according to the boxplot. Then we checked the ANOVA assumptions that was not fulfilled.
+
+Normality:
+
+```{r Q2NewNorm}
+shapiro.test(chargeFilter$charge)
+```
+
+Since p-value < 2.2e-16 and it is far less than $\alpha$ = 0.05, the charges is still not normal.
+
+Equal variance:
+
+```{r Q2NewVar}
+leveneTest(chargeFilter$charge ~ as.factor(chargeFilter$region))
+```
+
+Since the p-value = 0.0005383 < $\alpha$ = 0.05, the assumption of equal variance is still not fulfilled.
+
+So we performed Kruskal-Wallis test again:
+
+```{r}
+kruskal.test(chargeFilter$charges ~ chargeFilter$region)
+```
+
+The p-value after outlier removal is 0.1633, which is reduced slightly from the p-value of the raw data (p-value = 0.1923). Since the p-value = 0.1633 > $\alpha$ = 0.05, we failed to reject the null hypothesis and conclude that there is no statistically significant difference in mean medical cost of insurance contractor (charges) among different regions after removal of outliers So there is still no association between the region and the medical cost of insurance contractor (charges).
+
+### Research Question 3: Which factors significantly predict the total medical cost of insurance contractors(charges)?
+  
+Dependent variable: charges.
+
+#### Multiple linear regression initial assumptions \
+
+We checked the assumptions first:\
+
+1. The dependent variable is not normal according to the previous test. Since all transformations did not work, we assume charges is normally distributed.\
+2. multicollinearity \
+
+For numerical variables:\
+```{r}
+cor(ins[, c(1,3,4)])
+```
+
+We can see the correlations between our numerical variables age, bmi and children are all weak (all of them are lower than 0.3).\
+
+<br>
+For categorical variables:\
+sex vs smoker:\
+```{r}
+chisq.test(ins$sex, ins$smoker)
+```
+
+sex vs region:\
+```{r}
+chisq.test(ins$sex, ins$region)
+```
+
+smoker vs region:\
+```{r}
+chisq.test(ins$smoker, ins$region)
+```
+
+From above, we can see the categorical variables smoker and sex do have a statistically significant relationship in the 5% level of significance (0.006548 < $\alpha$= 0.05, so we can reject null).\
+
+Hence, we may just keep one of variables(smoker and sex) in our following models to predict charges.\
+
+#### Models comparison
+
+We firstly kept all variables in the model.
+
+Model 1 (full model): \
+```{r Q3Mod1}
+charges <- ins$charges
+age <- ins$age
+bmi <- ins$bmi
+children <- ins$children
+region <- ins$region
+smoker <- ins$smoker
+sex <- ins$sex
+
+model1 <- lm(charges ~ age + bmi + children + as.factor(region) 
+             + as.factor(smoker) + as.factor(sex)) # Full model
+summary(model1)
+```
+
+
+$$Estimated charges = -11938.5 + 256.9 \cdot age + 339.2 \cdot bmi + 475.5 \cdot children - 353.0 \cdot regionnorthwest - 1034.36 \cdot regionsoutheast - 960.0 \cdot regionsouthwest + 23848.5 \cdot smokeryes - 131.3 \cdot sexmale$$
+Then we performed backward selection to eliminate the variables that are unecessary. 
+
+```{r Q3Back}
+ols_step_backward_p(model1)
+```
+
+According to the result of backward selection, sex is an unecessary variable in our model. Moreover, according to the literature (Worrall et al., 1987), there are many confounding variables that may make the difference of medical cost between different genders(sex). Therefore, we removed sex in our model2.
+
+Model 2:
+```{r Q3Mod2}
+model2 <- lm(charges ~ age + bmi + children + as.factor(region) 
+             + as.factor(smoker)) # Model without sex
+summary(model2)
+```
+
+
+$$EstimatedCharges = -11990.27  + 256.97 \cdot age + 338.66 \cdot bmi + 474.57 \cdot children - 352.18 \cdot regionnorthwest - 1035.0 \cdot regionsoutheast - 959.37 \cdot regionsouthwest + 23836.30 \cdot smokeryes$$
+
+In Research Question 2, we have proved that there is difference in mean charges for each region. We also noticed that the p-value of chi-square between variable smoker and region is 0.06172, which is very close to our critical value 0.05.\
+
+From the literature we found that the region difference may not play a very big role in predicting the health insurance coverage, which in turn would not influence the total medical cost of insurance contractors(charges) that much (Frenzen, 1993).\
+
+Hence, we chose to remove region in model 3.
+
+```{r Q3Mod3}
+model3 <- lm(charges ~ age + bmi + children + as.factor(smoker) ) 
+# Model without sex and region
+summary(model3)
+```
+
+Model3:
+
+$$EstimatedCharges = -12102.77  + 257.85  \cdot age + 321.85  \cdot bmi + 473.50  \cdot children + 23811.40  \cdot smokeryes$$
+
+Then we compare the models.
+
+```{r}
+compareLM(model1, model2, model3)
+```
+
+We chose model 3 because the BIC for model 3 is the lowest (27150). The reason why we use BIC is because AIC prefers more complex models and it might choose models with a series of meaningless variables. So in reality, AIC is not a good choice for comparing models (Symonds et al., 2010). BIC, in contrast, employs prior knowledge and give simpler model.
+
+Also, AIC is more suitable to use when there is a smaller sample size, while BIC is better if there is a large sample. As we have a large dataset, we choose to use BIC (Acquah et al., 2010).
+
+#### Final model \
+
+$$EstimatedCharges = -12102.77  + 257.85  \cdot age + 321.85  \cdot bmi + 473.50  \cdot children + 23811.40  \cdot smokeryes$$
+Intercept: \
+If a person has the age = 0, bmi = 0, number of children = 0 and the person is not a smoker, the estimated charges is -12102.77 dollars. \ 
+
+Slopes: \
+If a person has other variables remain, the increase in each year of age will increase the estimated charges by 257.85 dollars.\ 
+If a person has other variables remain, the increase in each unit of bmi will increase the estimated charges by 321.85 dollars. \
+If a person has other variables remain, the addition of each children in their family will increase the estimated charges by 473.50 dollars. \
+If a person has other variables remain, the switching from non-smoker to smoker will increase the estimated charges by 23811.40 dollars. \
+
+#### Prediction \
+
+```{r Prediction}
+person2 <- data.frame(age = 18,	sex = "male",	bmi = 33.770, children = 1, 
+                      smoker = "no", region =	"southeast") 
+#	Real charges = 1725.552 dollars
+person2
+predict(model3, person2)
+```
+
+We can see from the prediction that the result (3880.946 dollars) is much greater than the actual charge (1725.552 dollars). So there is an overestimate for the real charges.
+
+#### Residual analysis \
+
+```{r Residual}
+par(mfrow = c(2,2))
+plot(model3)
+```
+
+Linearity:\
+```{r ResiLin}
+raintest(model3)
+```
+
+The p-value is 0.07039 > $\alpha$ = 0.05, so we failed to reject the null hypothesis that the model is not linear. The linearity assumption is fulfilled.
+
+Normality: \
+```{r ResiNor}
+resi <- model3$residuals
+shapiro.test(resi)
+```
+The p-value is 2.2e-16 < $\alpha$ = 0.05, so there is sufficient evidence to conclude that the residue is not normal. The normality assumption is not fulfilled.
+
+Homoskedasticity: \
+```{r ResiHomo}
+ols_test_breusch_pagan(model3)
+```
+
+The p-value is 4.494417e-52 < $\alpha$ = 0.05, so there is sufficient evidence to reject the null hypothesis that the vairances is equal. The Homoskedasticity assumption is not fulfilled.
+
+Outlier: \
+```{r ResiOut}
+ols_plot_resid_stud(model3)
+```
+
+From the graph above there is no significant outlier.
+
+Autocorrelation: \
+```{r ResiAuto}
+dwtest(model3)
+```
+
+Since p-value = 0.945 > 0.05, there is no auto-correlation
+
+Multicolinearity: \
+```{r ResiMul}
+vif(model3)
+```
+
+Since the results are all below 5, so there is no significant multicolinearity.
+
+## Section 4: Conclusion and Recommendation
+
+#### Conclusion: \
+
+From the first research question, we concluded that there is a difference in odds for the gender(sex) and the smoking status (smoker) in different regions, suggesting that region might act as a confounding variable. After doing the chi-square test for each region, we found that there is an association between the gender(sex) and the smoking status (smoker) of an insurance contractor in southwest but no association in Northeast, Northwest and Southeast. The association between gender and smoking status is suggested in this literature that smoking is a major cause of coronary heart disease for both men and women but there might be some differences in smoking status between genders (Bolego et al., 2002). 
+
+For the second research question, we concluded that there is no association between the region and the medical cost of insurance contractors(charges). The result suggests that we cannot predict medical costs based on the region the insurance contractor live. Our found literature also states that the cost of medical cost may vary from different regions (Uzila,2021). 
+
+For the third research question, we concluded that age, bmi, children and smoking status are significant predictors of medical cost of insurance contractors(charges). The insurance predictors released by health care federal government is not very consistent with our findings. They proposed age, location, and individual or family enrollment (children) as the main predictors, while region is excluded in our model due to the conclusion from question 2 ("How health insurance...").
+
+#### Limitation:   \
+
+We think there are other variables that could be really significant to the dependent variable charges. For example the races. And also we think there might be other reason behind why a variable in this dataset is significant to the charges, for example, it might not be the number of children that’s significant, the real reason might be the genetic disease that runs in a family.  
+
+This study only focused on the medical cost of people who have insurance and there are a lot of people who do not have medical insurance
+
+We think the category variable region is not specific enough, there could be places within the same region but are really different from each other, like NYC and a small city in the state of Michigan, they are both in the same region but their medical costs might me really different so regions are not representative enough
+
+
+#### Suggestion:   \
+
+1. The researchers can add  variable race and find if there's any association with charges and add a categorical variable if the family has genetic diease history(yes or no)   \
+2. Instead of Northeast, Northwest, Southeast and Southwest, we think it might be better to be more specific like in terms of States. \
+
+## Section 5: Reference
+
+1.\
+Uzila, Albers (2021). Medical Cost Prediction Can we accurately predict medical costs based on people’s data?, Medium. 
+https://towardsdatascience.com/medical-cost-prediction-4876e3449adf
+
+<br>
+2.\
+Worrall, J. D., Appel, D., & Butler, R. J. (1987). Sex, marital status, and medical utilization by injured workers. Journal of Risk and Insurance, 27-44.
+https://www.jstor.org/stable/252880#metadata_info_tab_contents
+
+<br>
+3.\
+Frenzen, P. D. (1993). Health insurance coverage in US urban and rural areas. The Journal of Rural Health, 9(3), 204-214.
+https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1748-0361.1993.tb00514.x
+
+<br>
+4.\
+Symonds, M. R., & Moussalli, A. (2010). A brief guide to model selection, multimodel inference and model averaging in behavioural ecology using Akaike’s information criterion. Behavioral Ecology and Sociobiology, 65(1), 13-21. https://doi.org/10.1007/s00265-010-1037-6
+
+<br>
+5.\
+Acquah, H. D. G. (2010). Comparison of Akaike information criterion (AIC) and Bayesian information criterion (BIC) in selection of an asymmetric price relationship. 
+https://academicjournals.org/article/article1379662949_Acquah.pdf
+
+<br>
+6.\
+Bolego, C., Poli, A., & Paoletti, R. (2002). Smoking and gender.Cardiovascular research,53(3), 568-576.
+https://academic.oup.com/cardiovascres/article/53/3/568/325628
+
+<br>
+7.\
+Finkelstein, E. A., Trogdon, J. G., Brown, D. S., Allaire, B. T., Dellea, P. S., & Kamal‐Bahl, S. J. (2008). The lifetime medical cost burden of overweight and obesity: implications for obesity prevention. Obesity,16(8), 1843-1848.
+https://onlinelibrary.wiley.com/doi/full/10.1038/oby.2008.290
+
+<br>
+8.\
+How health insurance marketplace® plans set your premiums. (n.d.). Get 2023 health coverage. Health Insurance Marketplace | HealthCare.gov. https://www.healthcare.gov/how-plans-set-your-premiums/
+
+<br>
+9.\
+Uzila, A. (2022, January 27). Medical cost prediction. Medium. https://towardsdatascience.com/medical-cost-prediction-4876e3449adf
